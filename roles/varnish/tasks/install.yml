@@ -1,0 +1,131 @@
+---
+- name: install | Ensure the system has the necessary dependencies
+  ansible.builtin.apt:
+    name: "{{ __dep__ }}"
+    state: present
+  loop: "{{ __varnish_dependencies }}"
+  loop_control:
+    loop_var: __dep__
+
+- name: install | Ensure Varnish Cache users and groups exist
+  block:
+    - name: install | Ensure the Varnish user exists
+      ansible.builtin.user:
+        name: "{{ varnish_user }}"
+        state: present
+        append: true
+
+    - name: install | Ensure the Varnish group exists
+      ansible.builtin.group:
+        name: "{{ varnish_group }}"
+        state: present
+
+- name: install | Ensure the required directories exist
+  block:
+    - name: install | Create the temporary directory to hold the Varnish GPG key
+      ansible.builtin.file:
+        path: "{{ __varnish_tmp_path }}"
+        state: directory
+        mode: 0755
+
+    - name: install | Create the Varnish configuration directory
+      ansible.builtin.file:
+        path: "{{ __varnish_conf_dir }}"
+        state: directory
+        owner: "{{ varnish_user }}"
+        group: "{{ varnish_group }}"
+        mode: 0755
+
+    - name: install | Create the Varnish data directory
+      ansible.builtin.file:
+        path: "{{ varnish_data_dir }}"
+        state: directory
+        owner: "{{ varnish_user }}"
+        group: "{{ varnish_group }}"
+        mode: 0755
+
+- name: install | Fetch the Varnish GPG keys in order to verify packages
+  ansible.builtin.get_url:
+    url: "{{ __varnish_gpg_key_url }}"
+    dest: "{{ __varnish_gpg_key_tmp_path }}"
+    owner: root
+    group: root
+    mode: 0755
+
+- name: install | Re-format the Varnish GPG key since it's format is deprecated
+  block:
+    - name: install | Create a temporary keyring for storage
+      ansible.builtin.file:
+        path: "{{ __varnish_gpg_key_tmp_keyring }}"
+        state: touch
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: install | Import the keyring into the temporary keyring
+      ansible.builtin.shell: >
+        gpg --no-default-keyring --keyring {{ __varnish_gpg_key_tmp_keyring }}
+        --import {{ __varnish_gpg_key_tmp_path }}
+      register: _varnish_gpg_key_import_
+      changed_when: _varnish_gpg_key_import_.rc == 0
+      failed_when: _varnish_gpg_key_import_.rc != 0
+
+    - name: install | Export the key from the temporary keyring
+      ansible.builtin.shell: >
+        gpg --no-default-keyring --keyring {{ __varnish_gpg_key_tmp_keyring }}
+        --export --output {{ __varnish_gpg_key_install_path }}
+      args:
+        creates: "{{ __varnish_gpg_key_install_path }}"
+      register: _varnish_gpg_key_export_
+      changed_when: _varnish_gpg_key_export_.rc == 0
+      failed_when: _varnish_gpg_key_export_.rc != 0
+
+# - name: install | Copy the downloaded keys to Ubuntu keyring
+#   ansible.builtin.copy:
+#     src: "{{ __varnish_gpg_key_tmp_path }}"
+#     remote_src: true
+#     dest: "{{ __varnish_gpg_key_install_path }}"
+#     owner: root
+#     group: root
+#     mode: 0755
+
+- name: install | Remove the temporary download directories
+  ansible.builtin.file:
+    path: "{{ __varnish_tmp_path }}"
+    state: absent
+
+- name: install | Configure the system package sources
+  ansible.builtin.template:
+    src: sources.list.j2
+    dest: "{{ __varnish_sources_install_path }}"
+    force: true
+    owner: root
+    group: root
+    mode: 0755
+
+- name: install | Pin the repository sources for Varnish to newly configured source
+  ansible.builtin.copy:
+    src: varnish_apt_preferences
+    dest: "{{ __varnish_sources_pin_path }}"
+    force: true
+    owner: root
+    group: root
+    mode: 0755
+
+- name: install | Update system package caches
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: install | Install the newly configured Varnish HTTP Cache package
+  ansible.builtin.apt:
+    name: "{{ __varnish_package_name }}"
+    state: present
+
+- name: install | Install the Varnish HTTP Cache modules
+  ansible.builtin.apt:
+    name: "{{ __vmod__ }}"
+    state: present
+  loop: "{{ varnish_vmods }}"
+  loop_control:
+    loop_var: __vmod__
+  when: varnish_vmods != [] and varnish_vmods | count > 0

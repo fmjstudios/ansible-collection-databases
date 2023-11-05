@@ -1,0 +1,33 @@
+---
+__redis_package: redis
+__redis_dependencies:
+  - lsb-release
+  - curl
+  - gpg
+  - build-essential
+  - libsystemd-dev
+  - pkg-config
+  - libssl-dev
+
+__redis_systemd_service: redis-server
+
+__redis_conf_mode: 0644
+__redis_conf_path: /etc/redis
+__redis_conf_file_path: "{{ __redis_conf_path }}/redis.conf"
+
+__redis_install_key_url: "https://packages.redis.io/gpg"
+__redis_install_repo_url: "https://packages.redis.io/deb"
+__redis_install_key_dest: /usr/share/keyrings/redis-archive-keyring.gpg
+__redis_install_sources_dest: /etc/apt/sources.list.d/redis.list
+
+__redis_system_user: redis
+__redis_system_group: "{{ __redis_system_user }}"
+
+__redis_source_url: https://download.redis.io/redis-stable.tar.gz
+__redis_source_tmp_dir: /tmp/redis
+__redis_source_tmp_path: "{{ __redis_source_tmp_dir }}/redis-stable.tar.gz"
+__redis_source_dest_dir: /usr/local/bin
+__redis_source_dependencies:
+  - libsystemd-dev
+
+__redis_stable_sha256_checksum: e6f2a33590641400deb7b71b6634b0e7cef1f9a476350b1ead4e8d6cfb5c56ab

@@ -1,0 +1,8 @@
+---
+- name: Restart Redis systemd service
+  listen: "restart redis"
+  ansible.builtin.service:
+    name: "{{ __redis_systemd_service }}"
+    state: restarted
+  when:
+    - not ansible_check_mode | bool

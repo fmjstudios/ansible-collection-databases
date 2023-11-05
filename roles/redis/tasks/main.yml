@@ -1,0 +1,44 @@
+---
+- name: Preflight
+  ansible.builtin.include_tasks:
+    file: preflight.yml
+    apply:
+      tags:
+        - redis_install
+        - redis_configure
+        - redis_run
+  tags:
+    - redis_install
+    - redis_configure
+    - redis_run
+
+- name: Install
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      become: true
+      tags:
+        - redis_install
+  tags:
+    - redis_install
+
+- name: Configure
+  ansible.builtin.include_tasks:
+    file: configure.yml
+    apply:
+      become: true
+      tags:
+        - redis_configure
+  tags:
+    - redis_configure
+
+- name: Ensure redis service is restarted and enabled
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ __redis_systemd_service }}"
+    daemon_reload: true
+    state: restarted
+    enabled: true
+
+- name: Flush handlers after run.
+  ansible.builtin.meta: flush_handlers

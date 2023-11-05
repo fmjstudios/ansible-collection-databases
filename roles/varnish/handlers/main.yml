@@ -1,0 +1,15 @@
+---
+- name: Restart Varnish systemd service
+  listen: "restart systemd"
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - not ansible_check_mode | bool
+
+- name: Restart Varnish systemd service
+  listen: "restart varnish"
+  ansible.builtin.service:
+    name: varnish
+    state: restarted
+  when:
+    - not ansible_check_mode | bool

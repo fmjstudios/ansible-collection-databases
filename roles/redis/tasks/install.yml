@@ -1,0 +1,91 @@
+---
+- name: install | Configure the new Redis package source
+  when: redis_package_source == "repo"
+  block:
+    - name: install | Download the official Redis GPG signing key
+      ansible.builtin.shell: |
+        set -o pipefail
+        curl -fsSl {{ __redis_install_key_url }} | gpg --dearmor -o \
+        {{ __redis_install_key_dest }}
+      args:
+        creates: "{{ __redis_install_key_dest }}"
+      register: _redis_gpg_key_import_
+      failed_when: _redis_gpg_key_import_.rc != 0
+
+    - name: install | Configure the 'apt' sources with the new signing key
+      ansible.builtin.shell: |
+        set -o pipefail
+        echo "deb [signed-by={{ __redis_install_key_dest }}] \
+        {{ __redis_install_repo_url }} $(lsb_release -cs) main" |
+        tee {{ __redis_install_sources_dest }}
+      args:
+        creates: "{{ __redis_install_sources_dest }}"
+      register: _redis_sources_list_creation_
+      failed_when: _redis_sources_list_creation_.rc != 0
+
+    - name: install | Update system package caches to receive newly configured Redis packages
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: install | Install Redis from the official repositories
+      ansible.builtin.apt:
+        name: "{{ __redis_package }}"
+        state: present
+
+- name: install | Compile Redis from source
+  block:
+    - name: install | Ensure the required build-dependencies are installed
+      ansible.builtin.apt:
+        name: "{{ __pkg__ }}"
+        state: present
+      loop: "{{ __redis_source_dependencies }}"
+      loop_control:
+        loop_var: __pkg__
+
+    - name: install | Create the required directories for compilation
+      ansible.builtin.file:
+        path: "{{ __redis_source_tmp_dir }}"
+        state: directory
+        mode: 0755
+
+    - name: install | Download the Redis stable release sources
+      ansible.builtin.get_url:
+        url: "{{ __redis_source_url }}"
+        dest: "{{ __redis_source_tmp_path }}"
+        checksum: "sha256:{{ __redis_stable_sha256_checksum }}"
+        mode: 0755
+
+    - name: install | Un-archive the source tarball
+      ansible.builtin.unarchive:
+        src: "{{ __redis_source_tmp_path }}"
+        remote_src: true
+        dest: "{{ __redis_source_tmp_dir }}"
+        mode: 0755
+
+    - name: install | Start compilation with Make
+      community.general.make:
+        chdir: "{{ __redis_source_tmp_dir }}/redis-stable"
+        params:
+          USE_SYSTEMD: "yes"
+          BUILD_TLS: "yes"
+
+- name: install | Copy the built binaries to Redis servers
+  when: redis_package_source == "source"
+  block:
+    - name: install | Copy the built 'redis-server' binary to all Redis systems
+      ansible.builtin.copy:
+        src: "{{ __redis_source_tmp_dir }}/redis-stable/src/redis-server"
+        dest: "{{ __redis_source_dest_dir }}/redis-server"
+        remote_src: true
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: install | Copy the built 'redis-cli' binary to all Redis systems
+      ansible.builtin.copy:
+        src: "{{ __redis_source_tmp_dir }}/redis-stable/src/redis-cli"
+        dest: "{{ __redis_source_dest_dir }}/redis-cli"
+        remote_src: true
+        owner: root
+        group: root
+        mode: 0755

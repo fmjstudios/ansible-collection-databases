@@ -1,0 +1,34 @@
+# {{ ansible_managed }}
+# Varnish HTTP Cache VCL configuration file
+
+vcl {{ varnish_vcl_config.version }};
+
+{% if varnish_vcl_config.imports is defined and varnish_vcl_config.imports | count > 0 %}
+{% for import in varnish_vcl_config.imports %}
+import {{ import }};
+{% endfor %}
+{% endif %}
+
+{% if varnish_vcl_config.acls is defined and varnish_vcl_config.acls | count > 0 %}
+{% for acl in varnish_vcl_config.acls %}
+acl {{ acl.name }} {
+  {{ acl.configuration | indent(width=2, first=True) }}
+}
+{% endfor %}
+{% endif %}
+
+{% if varnish_vcl_config.backends is defined and varnish_vcl_config.backends | count > 0 %}
+{% for end in varnish_vcl_config.backends %}
+backend {{ end.name }} {
+  {{ end.configuration | indent(width=4, first=True) }}
+}
+{% endfor %}
+{% endif %}
+
+{% if varnish_vcl_config.subs is defined and varnish_vcl_config.subs | count > 0 %}
+{% for sub in varnish_vcl_config.subs %}
+sub {{ sub.name }} {
+  {{ sub.configuration | indent(width=4, first=True) }}
+}
+{%endfor %}
+{% endif %}

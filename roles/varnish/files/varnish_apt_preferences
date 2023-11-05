@@ -1,0 +1,3 @@
+Package: varnish varnish-*
+Pin: release o=packagecloud.io/varnishcache/*
+Pin-Priority: 1000

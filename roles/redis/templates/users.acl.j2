@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# Redis ACL configuration file
+
+{% for user in redis_users %}
+{{ user }}
+{% endfor %}

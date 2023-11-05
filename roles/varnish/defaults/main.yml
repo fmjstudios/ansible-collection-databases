@@ -1,0 +1,60 @@
+---
+varnish_version: "60lts"
+
+varnish_user: varnish
+varnish_group: "{{ varnish_user }}"
+
+varnish_vmods:
+  []
+  # - awsrest
+  # - basicauth
+
+varnish_listen_address: ""
+varnish_listen_port: 6081
+varnish_listen_protocol: HTTP
+
+varnish_admin_listen_address: "localhost"
+varnish_admin_listen_port: 8443
+
+varnish_enabled_features:
+  []
+  # - http2
+
+varnish_disabled_features:
+  []
+  # - no_coredump
+
+varnish_data_dir: /var/lib/varnish
+varnish_storage_file: "{{ varnish_data_dir }}/varnish_storage.bin"
+varnish_storage: "file,{{ varnish_storage_file }},256M"
+
+varnish_systemd_pidfile: ""
+varnish_systemd_limit_nofile: 131072
+varnish_systemd_limit_memlock: 85983232
+
+varnish_extra_options: ""
+
+varnish_vcl_config:
+  version: "4.0"
+  imports:
+    []
+    # - std
+  acls:
+    []
+    # - name: purgers
+    #   configuration: |
+    #     "127.0.0.1";
+    #     "localhost";
+    #     "::1";
+  backends:
+    - name: default
+      configuration: |
+        .host = "127.0.0.1";
+        .port = "8080";
+  subs:
+    - name: vcl_recv
+      configuration: ""
+    - name: vcl_backend_response
+      configuration: ""
+    - name: vcl_deliver
+      configuration: ""

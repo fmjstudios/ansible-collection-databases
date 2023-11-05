@@ -1,0 +1,44 @@
+---
+- name: Preflight
+  ansible.builtin.include_tasks:
+    file: preflight.yml
+    apply:
+      tags:
+        - varnish_install
+        - varnish_configure
+        - varnish_run
+  tags:
+    - varnish_install
+    - varnish_configure
+    - varnish_run
+
+- name: Install
+  ansible.builtin.include_tasks:
+    file: install.yml
+    apply:
+      become: true
+      tags:
+        - varnish_install
+  tags:
+    - varnish_install
+
+- name: Configure
+  ansible.builtin.include_tasks:
+    file: configure.yml
+    apply:
+      become: true
+      tags:
+        - varnish_configure
+  tags:
+    - varnish_configure
+
+- name: Ensure varnish service is restarted and enabled
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ __varnish_systemd_service }}"
+    daemon_reload: true
+    state: restarted
+    enabled: true
+
+- name: Flush handlers after run.
+  ansible.builtin.meta: flush_handlers

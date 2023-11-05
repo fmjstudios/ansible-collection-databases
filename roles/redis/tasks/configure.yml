@@ -1,0 +1,112 @@
+---
+- name: configure | Ensure the Redis system user group exists
+  ansible.builtin.group:
+    name: "{{ __redis_system_group }}"
+    state: present
+
+- name: configure | Ensure that the Redis user exists
+  ansible.builtin.user:
+    name: "{{ __redis_system_user }}"
+    state: present
+
+- name: configure | Ensure the redis users are part of the Redis system user group
+  ansible.builtin.user:
+    name: "{{ __user__ }}"
+    group: "{{ __redis_system_group }}"
+    append: true
+  loop: "{{ redis_system_users }}"
+  loop_control:
+    loop_var: __user__
+
+- name: configure | Ensure that the required directories exist
+  block:
+    - name: configure | Ensure that the Redis configuration directory exists
+      ansible.builtin.file:
+        path: "{{ __redis_conf_path }}"
+        state: directory
+        owner: "{{ __redis_system_group }}"
+        group: "{{ __redis_system_group }}"
+        mode: 0755
+
+    - name: configure | Ensure that the Redis database directory exists
+      ansible.builtin.file:
+        path: "{{ redis_dbdir }}"
+        state: directory
+        owner: "{{ __redis_system_group }}"
+        group: "{{ __redis_system_group }}"
+        mode: 0755
+
+    - name: configure | Ensure that the Redis log directory exists
+      ansible.builtin.file:
+        path: "{{ redis_logfile | dirname }}"
+        state: directory
+        owner: "{{ __redis_system_group }}"
+        group: "{{ __redis_system_group }}"
+        mode: 0755
+
+    - name: configure | Ensure that the Redis 'run' directory exists
+      ansible.builtin.file:
+        path: "{{ redis_pidfile | dirname }}"
+        state: directory
+        owner: "{{ __redis_system_group }}"
+        group: "{{ __redis_system_group }}"
+        mode: 0755
+
+- name: configure | Ensure correct permissions for certificates and log files
+  block:
+    # - name: configure | Ensure PID file has the correct permissions
+    #   ansible.builtin.file:
+    #     path: "{{ redis_pidfile }}"
+    #     state: file
+    #     group: "{{ __redis_system_group }}"
+    #     mode: 0640
+
+    - name: configure | Ensure logfile has the correct permissions
+      ansible.builtin.file:
+        path: "{{ redis_logfile }}"
+        state: touch
+        owner: "{{ __redis_system_user }}"
+        group: "{{ __redis_system_group }}"
+        mode: 0640
+
+    - name: configure | Ensure certificate has the correct permissions
+      ansible.builtin.file:
+        path: "{{ redis_tls_cert_file }}"
+        state: file
+        group: "{{ __redis_system_group }}"
+        mode: 0640
+
+    - name: configure | Ensure certificate key has the correct permissions
+      ansible.builtin.file:
+        path: "{{ redis_tls_key_file }}"
+        state: file
+        group: "{{ __redis_system_group }}"
+        mode: 0640
+
+- name: configure | Configure Redis users via the new ACL configuration file
+  ansible.builtin.template:
+    src: users.acl.j2
+    dest: "{{ __redis_conf_path }}/users.acl"
+    owner: "{{ __redis_system_user }}"
+    group: "{{ __redis_system_group }}"
+    mode: 0640
+
+- name: configure | Configure Redis systemd service file
+  ansible.builtin.template:
+    src: "{{ __redis_systemd_service }}.service.j2"
+    dest: "/etc/systemd/system/{{ __redis_systemd_service }}.service"
+    force: true
+    owner: root
+    group: root
+    mode: 0640
+
+- name: configure | Configure Redis database via its' configuration file
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: "{{ __redis_conf_file_path }}"
+    force: true
+    owner: "{{ __redis_system_group }}"
+    group: "{{ __redis_system_group }}"
+    mode: 0640
+  notify:
+    - restart redis

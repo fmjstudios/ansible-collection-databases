@@ -1,0 +1,66 @@
+---
+- name: configure | Generate the Varnish secret
+  ansible.builtin.shell: |
+    dd if=/dev/random of={{ __varnish_secret_path }} count=1
+  args:
+    creates: "{{ __varnish_secret_path }}"
+  register: _varnish_secret_creation_dd_
+  failed_when: false
+
+- name: configure | Ensure the secret file has correct permissions
+  ansible.builtin.file:
+    path: "{{ __varnish_secret_path }}"
+    state: file
+    owner: "{{ varnish_user }}"
+    group: "{{ varnish_group }}"
+    mode: 0640
+
+- name: configure | Configure the default Varnish configuration
+  ansible.builtin.template:
+    src: varnish.j2
+    dest: "{{ __varnish_system_default_path }}/varnish"
+    force: true
+    owner: "{{ varnish_user }}"
+    group: "{{ varnish_group }}"
+    mode: 0640
+  when: >
+    ansible_distribution == 'Debian' and ansible_distribution_version|int >= 8 or
+    ansible_distribution == 'Ubuntu' and ansible_distribution_version.split('.')[0]|int >= 16
+  notify:
+    - restart systemd
+    - restart varnish
+
+- name: configure | Configure Varnish's VCL configuration file
+  ansible.builtin.template:
+    src: default.vcl.j2
+    dest: "{{ __varnish_conf_dir }}/default.vcl"
+    force: true
+    owner: "{{ varnish_user }}"
+    group: "{{ varnish_group }}"
+    mode: 0640
+  when: >
+    ansible_distribution == 'Debian' and ansible_distribution_version|int >= 8 or
+    ansible_distribution == 'Ubuntu' and ansible_distribution_version.split('.')[0]|int >= 16
+  notify:
+    - restart systemd
+    - restart varnish
+
+- name: configure | Configure the systemd service file
+  ansible.builtin.template:
+    src: varnish.service.j2
+    dest: "{{ __varnish_systemd_path }}/varnish.service"
+    force: true
+    owner: root
+    group: root
+    mode: 0640
+  when: >
+    ansible_distribution == 'Debian' and ansible_distribution_version|int >= 8 or
+    ansible_distribution == 'Ubuntu' and ansible_distribution_version.split('.')[0]|int >= 16
+  notify:
+    - restart systemd
+    - restart varnish
+
+- name: configure | Remove the default systemd service file
+  ansible.builtin.file:
+    path: "{{ __varnish_systemd_alternate_path }}/varnish.service"
+    state: absent

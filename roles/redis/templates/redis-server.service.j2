@@ -1,0 +1,23 @@
+# {{ ansible_managed }}
+# Redis systemd service file
+
+[Unit]
+Description=Redis server
+Documentation=https://redis.io/documentation
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart={{ __redis_source_dest_dir }}/redis-server {{ __redis_conf_file_path }}
+LimitNOFILE=10032
+NoNewPrivileges=yes
+Type=notify
+TimeoutStartSec=infinity
+TimeoutStopSec=infinity
+UMask=0077
+User={{ __redis_system_user }}
+Group={{ __redis_system_user }}
+WorkingDirectory={{ redis_dbdir | default('./') }}
+
+[Install]
+WantedBy=multi-user.target
